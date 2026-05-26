@@ -246,14 +246,17 @@ static volatile unsigned char UART1_LastRxError;
 /*
  *  module extern variables
  */
-extern uint8_t uiCfgFlagArmed;
+extern volatile uint8_t led0_timer;
+extern volatile uint8_t led1_timer;
 
 
-SIGNAL(UART0_RECEIVE_INTERRUPT)
+
+//SIGNAL(UART0_RECEIVE_INTERRUPT)
 /*************************************************************************
 Function: UART Receive Complete interrupt
 Purpose:  called when the UART has received a character
 **************************************************************************/
+/*
 {
     unsigned char tmphead;
     unsigned char data;
@@ -261,11 +264,11 @@ Purpose:  called when the UART has received a character
     unsigned char lastRxError;
  
  
-    /* read UART status register and UART data register */ 
+    // read UART status register and UART data register  
     usr  = UART0_STATUS;
     data = UART0_DATA;
     
-    /* */
+
 #if defined( AT90_UART )
     lastRxError = (usr & (_BV(FE)|_BV(DOR)|_BV(UPE)) );
 #elif defined( ATMEGA_USART )
@@ -276,75 +279,93 @@ Purpose:  called when the UART has received a character
     lastRxError = (usr & (_BV(FE)|_BV(DOR)|_BV(UPE)) );
 #endif
         
-    /* calculate buffer index */ 
+    // calculate buffer index 
     tmphead = ( UART_RxHead + 1) & UART_RX_BUFFER_MASK;
     
     if ( tmphead == UART_RxTail ) {
-        /* error: receive buffer overflow */
+        // error: receive buffer overflow
         lastRxError = UART_BUFFER_OVERFLOW >> 8;
     }else{
-        /* store new index */
+        // store new index 
         UART_RxHead = tmphead;
-        /* store received data in buffer */
+        // store received data in buffer
         UART_RxBuf[tmphead] = data;
     }
     UART_LastRxError = lastRxError;   
 }
+*/
+
+ISR(UART0_RECEIVE_INTERRUPT)
+{
+    uint8_t head;
+    uint8_t status;
+    uint8_t data;
+    uint8_t error;
+
+    status = UART0_STATUS;
+    data   = UART0_DATA;
+
+#if defined(ATMEGA_USART0)
+    error = status & (_BV(FE0) | _BV(DOR0) | _BV(UPE0));
+#else
+    error = status & (_BV(FE) | _BV(DOR) | _BV(UPE));
+#endif
+
+    head = (UART_RxHead + 1) & UART_RX_BUFFER_MASK;
+
+    if (head == UART_RxTail)
+    {
+        error = UART_BUFFER_OVERFLOW >> 8;
+    }
+    else
+    {
+        UART_RxHead = head;
+        UART_RxBuf[head] = data;
+    }
+
+    UART_LastRxError = error;
+}
 
 
-SIGNAL(UART0_TRANSMIT_INTERRUPT)
+//SIGNAL(UART0_TRANSMIT_INTERRUPT)
 /*************************************************************************
 Function: UART Data Register Empty interrupt
 Purpose:  called when the UART is ready to transmit the next byte
 **************************************************************************/
+/*
 {
+	
     unsigned char tmptail;
 
     
     if ( UART_TxHead != UART_TxTail) {
-        /* calculate and store new buffer index */
+        // calculate and store new buffer index 
         tmptail = (UART_TxTail + 1) & UART_TX_BUFFER_MASK;
         UART_TxTail = tmptail;
-        /* get one byte from buffer and write it to UART */
-        UART0_DATA = UART_TxBuf[tmptail];  /* start transmission */
+        // get one byte from buffer and write it to UART 
+        UART0_DATA = UART_TxBuf[tmptail];  // start transmission
     }else{
-        /* tx buffer empty, disable UDRE interrupt */
+        // tx buffer empty, disable UDRE interrupt 
         UART0_CONTROL &= ~_BV(UART0_UDRIE);
     }
 }
+*/
+ISR(UART0_TRANSMIT_INTERRUPT)
+{
+    uint8_t tail;
 
+    if (UART_TxHead == UART_TxTail)
+    {
+        UART0_CONTROL &= ~_BV(UART0_UDRIE);
+        return;
+    }
 
-unsigned char u0_rx_head(){
-	return UART_RxHead;
+    tail = (UART_TxTail + 1) & UART_TX_BUFFER_MASK;
+    UART_TxTail = tail;
+
+    UART0_DATA = UART_TxBuf[tail];
 }
 
-unsigned char u0_rx_tail(){
-	return UART_RxTail;
-}
-
-unsigned char u0_tx_head(){
-	return UART_TxHead;
-}
-
-unsigned char u0_tx_tail(){
-	return UART_TxTail;
-}
-
-unsigned char u1_rx_head(){
-	return UART1_RxHead;
-}
-
-unsigned char u1_rx_tail(){
-	return UART1_RxTail;
-}
-
-unsigned char u1_tx_head(){
-	return UART1_TxHead;
-}
-
-unsigned char u1_tx_tail(){
-	return UART1_TxTail;
-}
 
 
 /*************************************************************************
@@ -353,146 +374,53 @@ Purpose:  initialize UART and set baudrate
 Input:    baudrate using macro UART_BAUD_SELECT()
 Returns:  none
 **************************************************************************/
-void uart_init(unsigned int baudrate)
+void uart_init(uint16_t baudrate)
 {
     UART_TxHead = 0;
     UART_TxTail = 0;
     UART_RxHead = 0;
     UART_RxTail = 0;
-    
-#if defined( AT90_UART )
-    // set baud rate
-    UBRR = (unsigned char)baudrate; 
 
-    /* enable UART receiver and transmmitter and receive complete interrupt */
-    UART0_CONTROL = _BV(RXCIE)|_BV(RXEN)|_BV(TXEN);
+#if defined(ATMEGA_USART) || defined(ATMEGA_USART0) || defined(ATMEGA_UART)
 
-#elif defined (ATMEGA_USART)
-
-    // Set baud rate     
-	if ( baudrate & 0x8000 )
+    /* Double speed mode */
+    if (baudrate & 0x8000)
     {
-    	 UART0_STATUS = (1<<U2X);  //Enable 2x speed 
-    	 baudrate &= ~0x8000;
+        UART0_STATUS = _BV(U2X0);
+        baudrate &= ~0x8000;
     }
-    UBRRH = (unsigned char)(baudrate>>8);
-    UBRRL = (unsigned char) baudrate;
-/* 
-    UBRRH = 0x0D;;
-    UBRRL = 0x81;
- */
-    /* Enable USART receiver and transmitter and receive complete interrupt */
-    UART0_CONTROL = _BV(RXCIE)|(1<<RXEN)|(1<<TXEN);
-    
-    /* Set frame format: asynchronous, 8data, no parity, 1stop bit */
-    #ifdef URSEL
-    UCSRC = (1<<URSEL)|(3<<UCSZ0);
-    #else
-    UCSRC = (3<<UCSZ0);
-    #endif 
-    
-#elif defined (ATMEGA_USART0 )
-    /* Set baud rate */
-    if ( baudrate & 0x8000 ) 
-    {
-   		UART0_STATUS = (1<<U2X0);  //Enable 2x speed 
-   		baudrate &= ~0x8000;
-   	}
 
-    UBRR0H = (unsigned char)(baudrate>>8);
-    UBRR0L = (unsigned char) baudrate;
+    /* Baudrate setzen */
+    UBRR0H = (uint8_t)(baudrate >> 8);
+    UBRR0L = (uint8_t)(baudrate);
 
+    /* RX, TX, RX Interrupt */
+    UART0_CONTROL = _BV(RXCIE0) | _BV(RXEN0) | _BV(TXEN0);
 
-    /* Enable USART receiver and transmitter and receive complete interrupt */
-    UART0_CONTROL = _BV(RXCIE0)|(1<<RXEN0)|(1<<TXEN0);
-    
-    /* Set frame format: asynchronous, 8data, even parity, 1stop bit */
-    #ifdef URSEL0
-    UCSR0C = (1<<URSEL0)|(1<<UPM01)|(3<<UCSZ00);
-     //UCSR0C = (1<<URSEL0)|(3<<UCSZ00);
-    #else
-    UCSR0C = (3<<UCSZ00);
-    #endif 
-
-#elif defined ( ATMEGA_UART )
-    /* set baud rate */
-    if ( baudrate & 0x8000 ) 
-    {
-    	UART0_STATUS = (1<<U2X);  //Enable 2x speed 
-    	baudrate &= ~0x8000;
-    }
-    UBRRHI = (unsigned char)(baudrate>>8);
-    UBRR   = (unsigned char) baudrate;
-
-    /* Enable UART receiver and transmitter and receive complete interrupt */
-    UART0_CONTROL = _BV(RXCIE)|(1<<RXEN)|(1<<TXEN);
-
+    /* Frame format: 8N1 oder 8E1 (je nach Variante) */
+#if defined(URSEL0)
+    UCSR0C = _BV(URSEL0) | _BV(UCSZ01) | _BV(UCSZ00);
+#elif defined(UPM01)
+    UCSR0C = _BV(UPM01) | _BV(UCSZ01) | _BV(UCSZ00);
+#else
+    UCSR0C = _BV(UCSZ01) | _BV(UCSZ00);
 #endif
 
+#elif defined(AT90_UART)
+
+    UBRR = (uint8_t)baudrate;
+
+    UART0_CONTROL = _BV(RXCIE) | _BV(RXEN) | _BV(TXEN);
+
+#endif
 }/* uart_init */
 
-void buffers_clear(void)
+void Clear_UART_Buffers(void)
 {
     UART_RxHead = UART_RxTail = 0;
     UART1_RxHead = UART1_RxTail = 0;
 	UART_TxHead = UART_TxTail = 0;
     UART1_TxHead = UART1_TxTail = 0;
-}
-
-void uart0_enable(void)
-{
-    DDRD |= (1 << PD1);
-    UCSR0B |= (1 << RXEN0) | (1 << TXEN0);
-}
-
-void uart0_disable(void)
-{
-    UCSR0B &= ~((1 << RXEN0) | (1 << TXEN0));
-
-    DDRD |= (1 << PD1);
-    PORTD &= ~(1 << PD1);
-}
-
-
-void uart1_rx_enable(void)
-{
-    UCSR1B |= (1 << RXEN1);
-}
-
-void uart1_rx_disable(void)
-{
-    UCSR1B &= ~(1 << RXEN1);
-}
-
-/* =========================
-   BRIDGE ENGINE
-   ========================= */
-void bridge_step(void)
-{
-    
-	Service_UART1();
-	Service_UART0();
-	/*
-	// UART1 -> UART0
-    if (u1_tail != u1_head)
-    {
-        if (UCSR0A & (1 << UDRE0))
-        {
-            UDR0 = u1_to_u0_buf[u1_tail];
-            u1_tail = (u1_tail + 1) % BUF_SIZE;
-        }
-    }
-
-    // UART0 -> UART1
-    if (u0_tail != u0_head)
-    {
-        if (UCSR1A & (1 << UDRE1))
-        {
-            UDR1 = u0_to_u1_buf[u0_tail];
-            u0_tail = (u0_tail + 1) % BUF_SIZE;
-        }
-    }
-	*/
 }
 
 
@@ -505,7 +433,7 @@ Returns:  lower byte:  received byte from ringbuffer
 unsigned int uart_getc(void)
 {    
     unsigned char tmptail;
-    unsigned char data;
+    //unsigned char data;
 
 
     if ( UART_RxHead == UART_RxTail ) {
@@ -517,9 +445,9 @@ unsigned int uart_getc(void)
     UART_RxTail = tmptail; 
     
     /* get data from receive buffer */
-    data = UART_RxBuf[tmptail];
+    //data = UART_RxBuf[tmptail];
     
-    return (UART_LastRxError << 8) + data;
+    return (UART_LastRxError << 8) + UART_RxBuf[tmptail];
 
 }/* uart_getc */
 
@@ -550,34 +478,6 @@ void uart_putc(unsigned char data)
 }/* uart_putc */
 
 
-/*************************************************************************
-Function: uart_puts()
-Purpose:  transmit string to UART
-Input:    string to be transmitted
-Returns:  none          
-**************************************************************************/
-void uart_puts(const char *s )
-{
-    while (*s) 
-      uart_putc(*s++);
-
-}/* uart_puts */
-
-
-/*************************************************************************
-Function: uart_puts_p()
-Purpose:  transmit string from program memory to UART
-Input:    program memory string to be transmitted
-Returns:  none
-**************************************************************************/
-void uart_puts_p(const char *progmem_s )
-{
-    register char c;
-    
-    while ( (c = pgm_read_byte(progmem_s++)) ) 
-      uart_putc(c);
-
-}/* uart_puts_p */
 
 
 /*
@@ -585,11 +485,12 @@ void uart_puts_p(const char *progmem_s )
  */
 #if defined( ATMEGA_USART1 )
 
-SIGNAL(UART1_RECEIVE_INTERRUPT)
+//SIGNAL(UART1_RECEIVE_INTERRUPT)
 /*************************************************************************
 Function: UART1 Receive Complete interrupt
 Purpose:  called when the UART1 has received a character
 **************************************************************************/
+/*
 {
     unsigned char tmphead;
     unsigned char data;
@@ -597,49 +498,94 @@ Purpose:  called when the UART1 has received a character
     unsigned char lastRxError;
  
  
-    /* read UART status register and UART data register */ 
+    // read UART status register and UART data register 
     usr  = UART1_STATUS;
     data = UART1_DATA;
     
-    /* */
     lastRxError = (usr & (_BV(FE1)|_BV(DOR1)|_BV(UPE1)) );
         
-    /* calculate buffer index */ 
+    // calculate buffer index 
     tmphead = ( UART1_RxHead + 1) & UART_RX_BUFFER_MASK;
     
     if ( tmphead == UART1_RxTail ) {
-        /* error: receive buffer overflow */
+        // error: receive buffer overflow 
         lastRxError = UART_BUFFER_OVERFLOW >> 8;
     }else{
-        /* store new index */
+        // store new index
         UART1_RxHead = tmphead;
-        /* store received data in buffer */
+        // store received data in buffer
         UART1_RxBuf[tmphead] = data;
     }
     UART1_LastRxError = lastRxError;  
 	 
 }
+*/
+ISR(UART1_RECEIVE_INTERRUPT)
+{
+    uint8_t head;
+    uint8_t status;
+    uint8_t data;
+    uint8_t error;
+
+    status = UART1_STATUS;
+    data   = UART1_DATA;
+
+    error = status & (_BV(FE1) | _BV(DOR1) | _BV(UPE1));
+
+    head = (UART1_RxHead + 1) & UART_RX_BUFFER_MASK;
+
+    if (head == UART1_RxTail)
+    {
+        error = UART_BUFFER_OVERFLOW >> 8;
+    }
+    else
+    {
+        UART1_RxHead = head;
+        UART1_RxBuf[head] = data;
+    }
+
+    UART1_LastRxError = error;
+}
 
 
-SIGNAL(UART1_TRANSMIT_INTERRUPT)
+
+//SIGNAL(UART1_TRANSMIT_INTERRUPT)
 /*************************************************************************
 Function: UART1 Data Register Empty interrupt
 Purpose:  called when the UART1 is ready to transmit the next byte
 **************************************************************************/
+/*
 {
     unsigned char tmptail;
 
     
     if ( UART1_TxHead != UART1_TxTail) {
-        /* calculate and store new buffer index */
+        // calculate and store new buffer index 
         tmptail = (UART1_TxTail + 1) & UART_TX_BUFFER_MASK;
         UART1_TxTail = tmptail;
-        /* get one byte from buffer and write it to UART */
-        UART1_DATA = UART1_TxBuf[tmptail];  /* start transmission */
+        // get one byte from buffer and write it to UART 
+        UART1_DATA = UART1_TxBuf[tmptail];  // start transmission 
     }else{
-        /* tx buffer empty, disable UDRE interrupt */
+        // tx buffer empty, disable UDRE interrupt
         UART1_CONTROL &= ~_BV(UART1_UDRIE);
     }
+}
+*/
+
+ISR(UART1_TRANSMIT_INTERRUPT)
+{
+    uint8_t tail;
+
+    if (UART1_TxHead == UART1_TxTail)
+    {
+        UART1_CONTROL &= ~_BV(UART1_UDRIE);
+        return;
+    }
+
+    tail = (UART1_TxTail + 1) & UART_TX_BUFFER_MASK;
+    UART1_TxTail = tail;
+
+    UART1_DATA = UART1_TxBuf[tail];
 }
 
 
@@ -649,36 +595,33 @@ Purpose:  initialize UART1 and set baudrate
 Input:    baudrate using macro UART_BAUD_SELECT()
 Returns:  none
 **************************************************************************/
-void uart1_init(unsigned int baudrate)
+void uart1_init(uint16_t baudrate)
 {
     UART1_TxHead = 0;
     UART1_TxTail = 0;
     UART1_RxHead = 0;
     UART1_RxTail = 0;
-    
 
-    // Set baud rate
-    if ( baudrate & 0x8000 ) 
+    /* Double speed mode */
+    if (baudrate & 0x8000)
     {
-    	UART1_STATUS = (1<<U2X1);  //Enable 2x speed 
-      baudrate &= ~0x8000;
+        UART1_STATUS = _BV(U2X1);
+        baudrate &= ~0x8000;
     }
-    UBRR1H = (unsigned char)(baudrate>>8);
-    UBRR1L = (unsigned char) baudrate;
-/*
-    UBRR1H = 0x08; //(unsigned char)(baudrate>>8);
-    UBRR1L = 0xFF; //(unsigned char) baudrate;
-*/
 
-    /* Enable USART receiver and transmitter and receive complete interrupt */
-    UART1_CONTROL = _BV(RXCIE1)|(1<<RXEN1)|(1<<TXEN1);
-    
-    /* Set frame format: asynchronous, 8data, no parity, 1stop bit */   
-    #ifdef URSEL1
-    UCSR1C = (1<<URSEL1)|(3<<UCSZ10);
-    #else
-    UCSR1C = (3<<UCSZ10);
-    #endif 
+    /* Baudrate setzen */
+    UBRR1H = (uint8_t)(baudrate >> 8);
+    UBRR1L = (uint8_t)(baudrate);
+
+    /* RX + TX + RX Interrupt aktivieren */
+    UART1_CONTROL = _BV(RXCIE1) | _BV(RXEN1) | _BV(TXEN1);
+
+    /* Frame: 8N1 */
+#ifdef URSEL1
+    UCSR1C = _BV(URSEL1) | _BV(UCSZ11) | _BV(UCSZ10);
+#else
+    UCSR1C = _BV(UCSZ11) | _BV(UCSZ10);
+#endif
 }/* uart_init */
 
 
@@ -691,7 +634,7 @@ Returns:  lower byte:  received byte from ringbuffer
 unsigned int uart1_getc(void)
 {    
     unsigned char tmptail;
-    unsigned char data;
+    //unsigned char data;
 
 
     if ( UART1_RxHead == UART1_RxTail ) {
@@ -703,9 +646,9 @@ unsigned int uart1_getc(void)
     UART1_RxTail = tmptail; 
     
     /* get data from receive buffer */
-    data = UART1_RxBuf[tmptail];
+    //data = UART1_RxBuf[tmptail];
     
-    return (UART1_LastRxError << 8) + data;
+    return (UART1_LastRxError << 8) + UART1_RxBuf[tmptail];
 
 }/* uart1_getc */
 
@@ -736,219 +679,60 @@ void uart1_putc(unsigned char data)
 }/* uart1_putc */
 
 
-/*************************************************************************
-Function: uart1_puts()
-Purpose:  transmit string to UART1
-Input:    string to be transmitted
-Returns:  none          
-**************************************************************************/
-void uart1_puts(const char *s )
-{
-    while (*s) 
-      uart1_putc(*s++);
-
-}/* uart1_puts */
 
 
-
-/*************************************************************************
-Function: uart1_puts_p()
-Purpose:  transmit string from program memory to UART1
-Input:    program memory string to be transmitted
-Returns:  none
-**************************************************************************/
-void uart1_puts_p(const char *progmem_s )
-{
-    register char c;
-    
-    while ( (c = pgm_read_byte(progmem_s++)) ) 
-      uart1_putc(c);
-
-}/* uart1_puts_p */
-
-
-extern uint8_t uiRedLedAttached;
-extern uint8_t uiGreenLedAttached;
-
-volatile uint8_t led0_timer;
-volatile uint8_t led1_timer;
 
 
 void Service_UART0(void)
 {
+    uint16_t c;
 
-    unsigned int c;
+    c = uart_getc();
 
+    if (c & UART_NO_DATA)
+    {
+        return;
+    }
 
-       /*
-         * Get received character from ringbuffer
-         * uart_getc() returns in the lower byte the received character and 
-         * in the higher byte (bitmask) the last receive error
-         * UART_NO_DATA is returned when no data is available.
-         *
-         */
-        c = uart_getc();
-        if ( c & UART_NO_DATA )
-        {
-            /* 
-             * no data available from UART 
-             */
-        }
-        else
-        {
-            /*
-             * new data available from UART
-             * check for Frame or Overrun error
-             */
-            if ( c & UART_FRAME_ERROR )
-            {
-                /* Framing Error detected, i.e no stop bit detected */
-                //uart_puts_P("UART Frame Error: ");
+    /* Error handling */
+    if (c & (UART_FRAME_ERROR | UART_OVERRUN_ERROR |
+             UART_BUFFER_OVERFLOW | UART_PARITY_ERROR))
+    {
+        PORTA |= (1 << PA1);
+        led1_timer = 5;
+    }
 
-				// Blink red LED to indicate uart0 error
-				PORTA |=  (1<<PA1);
-				led1_timer = 50;
+    /* normal receive action */
+    PORTA |= (1 << PA0);
+    led0_timer = 2;
 
-            }
-            else if ( c & UART_OVERRUN_ERROR )
-            {
-                /* 
-                 * Overrun, a character already present in the UART UDR register was 
-                 * not read by the interrupt handler before the next character arrived,
-                 * one or more received characters have been dropped
-                 */
-                //uart_puts_P("UART Overrun Error: ");
-
-				// Blink red LED to indicate uart0 error
-				PORTA |=  (1<<PA1);
-				led1_timer = 50;
-            }
-            else if ( c & UART_BUFFER_OVERFLOW )
-            {
-                /* 
-                 * We are not reading the receive buffer fast enough,
-                 * one or more received character have been dropped 
-                 */
-                //uart_puts_P("Buffer overflow error: ");
-
-				// Blink red LED to indicate uart0 error
-				PORTA |=  (1<<PA1);
-				led1_timer = 50;
-			}
-            else if ( c & UART_PARITY_ERROR )
-            {
-                /* 
-                 * A parity error occured while receiving a character 
-                 */
-                //uart_puts_P("Buffer overflow error: ");
-				// Blink red LED to indicate uart0 error
-				PORTA |=  (1<<PA1);
-				led1_timer = 50;
-            }
-
-            /* 
-             * send received character back
-			 * forward received charcter to UART1
-             */
-
-            PORTA |=  (1<<PA0);
-
-            led0_timer = 25;
-			 
-            uart1_putc( (unsigned char)c );
-			
-        }
-
+    uart1_putc((uint8_t)c);
 }
+
 
 
 void Service_UART1(void)
 {
+    uint16_t c;
 
-    unsigned int c;
+    c = uart1_getc();
 
+    if (c & UART_NO_DATA)
+    {
+        return;
+    }
 
-       /*
-         * Get received character from ringbuffer
-         * uart_getc() returns in the lower byte the received character and 
-         * in the higher byte (bitmask) the last receive error
-         * UART_NO_DATA is returned when no data is available.
-         *
-         */
-        c = uart1_getc();
-        if ( c & UART_NO_DATA )
-        {
-            /* 
-             * no data available from UART 
-             */
-        }
-        else
-        {
-            /*
-             * new data available from UART
-             * check for Frame or Overrun error
-             */
-            if ( c & UART_FRAME_ERROR )
-            {
-                /* Framing Error detected, i.e no stop bit detected */
-                //uart_puts_P("UART Frame Error: ");
-				// Set error LED
-				// Blink red LED to indicate uart0 error
-				PORTA |=  (1<<PA1);
-				led1_timer = 50;
+    /* Error handling (all errors treated the same) */
+    if (c & (UART_FRAME_ERROR | UART_OVERRUN_ERROR |
+             UART_BUFFER_OVERFLOW | UART_PARITY_ERROR))
+    {
+        PORTA |= (1 << PA1);
+        led1_timer = 5;
+    }
 
-            }
-            else if ( c & UART_OVERRUN_ERROR )
-            {
-                /* 
-                 * Overrun, a character already present in the UART UDR register was 
-                 * not read by the interrupt handler before the next character arrived,
-                 * one or more received characters have been dropped
-                 */
-                //uart_puts_P("UART Overrun Error: ");
-				// Set error LED
-				// Blink red LED to indicate uart0 error
-				PORTA |=  (1<<PA1);
-				led1_timer = 50;
-
-            }
-            else if ( c & UART_BUFFER_OVERFLOW )
-            {
-                /* 
-                 * We are not reading the receive buffer fast enough,
-                 * one or more received character have been dropped 
-                 */
-                //uart_puts_P("Buffer overflow error: ");
-				// Blink red LED to indicate uart0 error
-				PORTA |=  (1<<PA1);
-				led1_timer = 50;
-            }
-            else if ( c & UART_PARITY_ERROR )
-            {
-                /* 
-                 * A parity error occured while receiving a character 
-                 */
-                //uart_puts_P("Buffer overflow error: ");
-				// Blink red LED to indicate uart0 error
-				PORTA |=  (1<<PA1);
-				led1_timer = 50;
-            }
-            /* 
-             * send received character back
-			 * forward received charcter to UART1
-             */
-			
-			//PORTA |=  (1<<PA1);
-
-            //led1_timer = 25;
-
-			uart_putc( (unsigned char)c );
-			
-			
-        }
-
+    /* Echo back received character */
+    uart_putc((uint8_t)c);
 }
-
 
 
 
