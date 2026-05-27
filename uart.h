@@ -160,6 +160,8 @@ void Clear_UART_Buffers(void);
 void Service_UART0(void);
 void Service_UART1(void);
 
+void Service_CMD(void);
+
 
 
 
