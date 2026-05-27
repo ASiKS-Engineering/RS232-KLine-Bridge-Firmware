@@ -47,6 +47,10 @@ LICENSE:
  
 /**@{*/
 
+#define VERSION_MAJOR  1
+#define VERSION_MINOR  0
+#define VERSION_PATCH  1
+
 
 #if (__GNUC__ * 100 + __GNUC_MINOR__) < 304
 #error "This library requires AVR-GCC 3.4 or later, update to newer AVR-GCC compiler !"
