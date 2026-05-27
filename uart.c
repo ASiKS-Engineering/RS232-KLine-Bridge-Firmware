@@ -225,22 +225,36 @@ LICENSE:
 /*
  *  module global variables
  */
-static volatile unsigned char UART_TxBuf[UART_TX_BUFFER_SIZE];
-static volatile unsigned char UART_RxBuf[UART_RX_BUFFER_SIZE];
-static volatile unsigned char UART_TxHead;
-static volatile unsigned char UART_TxTail;
-static volatile unsigned char UART_RxHead;
-static volatile unsigned char UART_RxTail;
-static volatile unsigned char UART_LastRxError;
+
+
+static volatile uint8_t UART_TxBuf[UART_BUFFER_MAX];
+static volatile uint8_t UART_RxBuf[UART_BUFFER_MAX];
+static volatile uint16_t UART_TxHead;
+static volatile uint16_t UART_TxTail;
+static volatile uint16_t UART_RxHead;
+static volatile uint16_t UART_RxTail;
+static volatile uint8_t UART_LastRxError;
+static uint16_t uart0_rx_size;
+static uint16_t uart0_tx_size;
+static uint16_t uart0_rx_mask;
+static uint16_t uart0_tx_mask;
+
+
+
 
 #if defined( ATMEGA_USART1 )
-static volatile unsigned char UART1_TxBuf[UART_TX_BUFFER_SIZE];
-static volatile unsigned char UART1_RxBuf[UART_RX_BUFFER_SIZE];
-static volatile unsigned char UART1_TxHead;
-static volatile unsigned char UART1_TxTail;
-static volatile unsigned char UART1_RxHead;
-static volatile unsigned char UART1_RxTail;
-static volatile unsigned char UART1_LastRxError;
+static volatile uint8_t UART1_TxBuf[UART_BUFFER_MAX];
+static volatile uint8_t UART1_RxBuf[UART_BUFFER_MAX];
+static volatile uint16_t UART1_TxHead;
+static volatile uint16_t UART1_TxTail;
+static volatile uint16_t UART1_RxHead;
+static volatile uint16_t UART1_RxTail;
+static volatile uint8_t UART1_LastRxError;
+static uint16_t uart1_rx_size;
+static uint16_t uart1_tx_size;
+static uint16_t uart1_rx_mask;
+static uint16_t uart1_tx_mask;
+
 #endif
 
 /*
@@ -249,6 +263,63 @@ static volatile unsigned char UART1_LastRxError;
 extern volatile uint8_t led0_timer;
 extern volatile uint8_t led1_timer;
 
+
+uint16_t validate_buffer_size(uint16_t size)
+{
+    if(size > UART_BUFFER_MAX)
+        return 128;
+
+    if(size == 0)
+        return 128;
+
+    if(size & (size - 1))
+        return 128;
+
+    return size;
+}
+
+uint8_t is_power_of_two(uint16_t x)
+{
+    return (x != 0) && ((x & (x - 1)) == 0);
+}
+
+void uart_buffers_init(uint16_t uart0_rx_buffer_size, uint16_t uart0_tx_buffer_size, uint16_t uart1_rx_buffer_size, uint16_t uart1_tx_buffer_size)
+{
+	
+	//uart0_rx_size = g_settings.uart0_rx_buffer_size;
+	uart0_rx_size = uart0_rx_buffer_size;
+    if(!is_power_of_two(uart0_rx_size))	
+    {	
+    	uart0_rx_size = 128;
+	}
+	
+	//uart0_tx_size = g_settings.uart0_tx_buffer_size;
+	uart0_tx_size = uart0_tx_buffer_size;
+	if(!is_power_of_two(uart0_tx_size))	
+    {	
+    	uart0_tx_size = 128;
+	}
+	
+    //uart1_rx_size = g_settings.uart1_rx_buffer_size;
+    uart1_rx_size = uart1_rx_buffer_size;
+	if(!is_power_of_two(uart1_rx_size))	
+    {	
+    	uart0_rx_size = 128;
+	}
+	
+    //uart1_tx_size = g_settings.uart1_tx_buffer_size;
+    uart1_tx_size = uart1_tx_buffer_size;
+	if(!is_power_of_two(uart1_tx_size))	
+    {	
+    	uart1_tx_size = 128;
+	}
+	
+    uart0_rx_mask = uart0_rx_size - 1;
+    uart0_tx_mask = uart0_tx_size - 1;
+
+    uart1_rx_mask = uart1_rx_size - 1;
+    uart1_tx_mask = uart1_tx_size - 1;
+}
 
 
 //SIGNAL(UART0_RECEIVE_INTERRUPT)
