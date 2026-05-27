@@ -764,6 +764,8 @@ void Service_CMD(void){
     			uart1_putc(VERSION_MINOR);
 			    uart1_putc(".");
     			uart1_putc(VERSION_PATCH);
+    			uart1_putc("/r");
+    			uart1_putc("/n");
 			    console_active = 0;
             break;
 
