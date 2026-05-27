@@ -5,11 +5,11 @@
 :: ATmega162
 :: --------------------------------------------------------
 
-avr-gcc.exe -mmcu=atmega162 -Wall -gdwarf-2 -std=gnu99 -DF_CPU=14745600 -O0 -fsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -c main.c uart.c
-avr-gcc.exe -mmcu=atmega162 -Wl,-Map=uart_kline_bridge.map main.o uart.o helpers.o -o uart_kline_bridge.elf
+avr-gcc.exe -mmcu=atmega162 -Wall -gdwarf-2 -std=gnu99 -DF_CPU=14745600 -O2 -fsigned-char -funsigned-bitfields -fpack-struct -fshort-enums -c main.c uart.c
+avr-gcc.exe -mmcu=atmega162 -Wl,-Map=uart_kline_bridge.map main.o uart.o -o uart_kline_bridge.elf
 avr-objcopy -O ihex -R .eeprom uart_kline_bridge.elf uart_kline_bridge_atmega162_v.hex
 
-.\srecord-1.65.0-win64\bin\srec_cat.exe uart_kline_bridge_atmega162_v.hex -Intel -Output uart_kline_bridge_atmega162_srec.hex -Intel -Line_Length 44
+srec_cat.exe uart_kline_bridge_atmega162_v.hex -Intel -Output uart_kline_bridge_atmega162_srec.hex -Intel -Line_Length 44
 :: --------------------------------------------------------
 
 :ende

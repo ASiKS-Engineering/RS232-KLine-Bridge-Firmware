@@ -5,7 +5,7 @@
 
 #include <avr/io.h>
 #include "uart.h"
-
+#include <util/delay.h>
 #include <stdlib.h>
 #include <avr/interrupt.h>
 
@@ -61,6 +61,29 @@ ISR(TIMER0_COMP_vect)
 
 
 
+void startup_blink(void)
+{
+    // Beide LEDs nacheinander blinken
+    for(uint8_t i = 0; i < 3; i++)
+    {
+        PORTA |= (1 << PA0);   // LED an PA0 EIN
+        PORTA &= ~(1 << PA1);  // LED an PA1 AUS
+        _delay_ms(200);
+
+        PORTA &= ~(1 << PA0);  // LED an PA0 AUS
+        PORTA |= (1 << PA1);   // LED an PA1 EIN
+        _delay_ms(200);
+    }
+
+    // Beide kurz gleichzeitig einschalten
+    PORTA |= (1 << PA0) | (1 << PA1);
+    _delay_ms(500);
+
+    // Beide aus
+    PORTA &= ~((1 << PA0) | (1 << PA1));
+}
+
+
 //-----------------------------------------------------------------------------------------
 //		main
 //-----------------------------------------------------------------------------------------
@@ -83,7 +106,7 @@ int main (void)
 	uint8_t u8_bridgeEnabled=0;
 	uint8_t u8_dtr_value = 0;
 
-	uint32_t u32_Baudrate;
+	//uint32_t u32_Baudrate;
 	
 	/* --- Disable interrupts --- */
 	cli();
@@ -112,6 +135,8 @@ int main (void)
 	// Clear LEDs
 	PORTA &= ~((1 << PA0) | (1 << PA1));
 
+	startup_blink();
+
 
 	/* --- Init timer 0 (~10ms) that services leds  --- */
 	// 14745600 / 1024 = 14400 Hz
@@ -134,9 +159,9 @@ int main (void)
      *  or 
      *  UART_BAUD_SELECT_DOUBLE_SPEED() ( double speed mode)
      */
-    uart_init(UART_BAUD_SELECT(10400,F_CPU)); 
+    uart_init(UART_BAUD_SELECT(10400UL,F_CPU)); 
     
-	uart1_init(UART_BAUD_SELECT(19200,F_CPU)); 
+	uart1_init(UART_BAUD_SELECT(19200UL,F_CPU)); 
 
 
 	/* --- Enable interrupts --- */ 
