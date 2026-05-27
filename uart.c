@@ -735,7 +735,46 @@ void Service_UART1(void)
 }
 
 
+uint8_t console_active = 0;
 
+void Service_CMD(void){
+
+    uint16_t c;
+
+    c = uart1_getc();
+	
+    // Wait for console activation
+    if (!console_active)
+    {
+        if (c == '-')
+        {
+            console_active = 1;
+        }
+        return;
+    }
+
+    // Console-commands
+    switch (c)
+    {
+        case 'v':
+                // Send 
+			    uart1_putc("v");
+			    uart1_putc(VERSION_MAJOR);
+			    uart1_putc(".");
+    			uart1_putc(VERSION_MINOR);
+			    uart1_putc(".");
+    			uart1_putc(VERSION_PATCH);
+			    console_active = 0;
+            break;
+
+        default:
+            // Send unknown cmd response
+            uart1_putc('?');
+		    console_active = 0;
+            break;
+    }
+
+}
 
 
 
