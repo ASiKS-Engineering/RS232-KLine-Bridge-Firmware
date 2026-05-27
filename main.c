@@ -87,11 +87,11 @@ void settings_set_defaults(settings_t *s)
     s->uart0_baudrate = 10400UL;
     s->uart1_baudrate = 19200UL;
 
-    s->uart0_rx_buffer_size = 128;
-    s->uart0_tx_buffer_size = 128;
+    s->uart0_rx_buffer_size = UART_BUFFER_DEFAULT;
+    s->uart0_tx_buffer_size = UART_BUFFER_DEFAULT;
 
-    s->uart1_rx_buffer_size = 128;
-    s->uart1_tx_buffer_size = 128;
+    s->uart1_rx_buffer_size = UART_BUFFER_DEFAULT;
+    s->uart1_tx_buffer_size = UART_BUFFER_DEFAULT;
 
     s->checksum = settings_checksum(s);
 }
