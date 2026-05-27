@@ -8,6 +8,8 @@
 #include <util/delay.h>
 #include <stdlib.h>
 #include <avr/interrupt.h>
+#include <avr/eeprom.h>
+#include <stdint.h>
 
 //-----------------------------------------------------------------------------------------
 //		Global types and definitions
@@ -19,6 +21,118 @@
 //-----------------------------------------------------------------------------------------
 volatile uint8_t led0_timer = 0;
 volatile uint8_t led1_timer = 0;
+
+
+/* =========================================================
+ * EEPROM SETTINGS Structure
+ * =========================================================
+ */
+
+typedef struct
+{
+    uint32_t uart0_baudrate;
+    uint32_t uart1_baudrate;
+
+    uint16_t uart0_rx_buffer_size;
+    uint16_t uart0_tx_buffer_size;
+
+    uint16_t uart1_rx_buffer_size;
+    uint16_t uart1_tx_buffer_size;
+
+    uint16_t checksum;
+
+} settings_t;
+
+
+/* EEPROM instance */
+settings_t EEMEM ee_settings;
+
+/* =========================================================
+ * RAM KOPIE DER SETTINGS
+ * =========================================================
+ */
+
+settings_t g_settings;
+
+
+/* =========================================================
+ * CHECKSUM
+ * einfache 16bit Prüfsumme
+ * =========================================================
+ */
+
+uint16_t settings_checksum(settings_t *s)
+{
+    uint8_t *ptr;
+    uint16_t sum = 0;
+
+    ptr = (uint8_t*)s;
+
+    for(uint16_t i = 0; i < (sizeof(settings_t) - sizeof(uint16_t)); i++)
+    {
+        sum += ptr[i];
+    }
+
+    return sum;
+}
+
+
+/* =========================================================
+ * DEFAULT SETTINGS
+ * =========================================================
+ */
+
+void settings_set_defaults(settings_t *s)
+{
+    s->uart0_baudrate = 10400UL;
+    s->uart1_baudrate = 19200UL;
+
+    s->uart0_rx_buffer_size = 128;
+    s->uart0_tx_buffer_size = 128;
+
+    s->uart1_rx_buffer_size = 128;
+    s->uart1_tx_buffer_size = 128;
+
+    s->checksum = settings_checksum(s);
+}
+
+
+/* =========================================================
+ * SETTINGS AUS EEPROM LADEN
+ * =========================================================
+ */
+
+uint8_t settings_load(settings_t *s)
+{
+    eeprom_read_block((void*)s,
+                      (const void*)&ee_settings,
+                      sizeof(settings_t));
+
+    uint16_t chk = settings_checksum(s);
+
+    if(chk != s->checksum)
+    {
+        settings_set_defaults(s);
+        return 0;
+    }
+
+    return 1;
+}
+
+
+/* =========================================================
+ * SETTINGS INS EEPROM SCHREIBEN
+ * =========================================================
+ */
+
+void settings_save(settings_t *s)
+{
+    s->checksum = settings_checksum(s);
+
+    eeprom_update_block((const void*)s,
+                        (void*)&ee_settings,
+                        sizeof(settings_t));
+}
 
 
 //-----------------------------------------------------------------------------------------
@@ -105,9 +219,22 @@ int main (void)
 	uint8_t u8_last_dtr_value=0xFF;
 	uint8_t u8_bridgeEnabled=0;
 	uint8_t u8_dtr_value = 0;
-
-	//uint32_t u32_Baudrate;
-	
+	/*
+    // EEPROM lesen
+    if(!settings_load(&g_settings))
+    {
+        // EEPROM ungültig -> Defaults speichern
+        settings_save(&g_settings);
+    }
+	*/
+    /*
+     * Ringbuffergrößen verfügbar:
+     *
+     * g_settings.uart0_rx_buffer_size
+     * g_settings.uart0_tx_buffer_size
+     * g_settings.uart1_rx_buffer_size
+     * g_settings.uart1_tx_buffer_size
+     */
 	/* --- Disable interrupts --- */
 	cli();
 
@@ -159,10 +286,13 @@ int main (void)
      *  or 
      *  UART_BAUD_SELECT_DOUBLE_SPEED() ( double speed mode)
      */
-    uart_init(UART_BAUD_SELECT(10400UL,F_CPU)); 
+	uart_init(UART_BAUD_SELECT(10400UL,F_CPU)); 
+	//uart_init(UART_BAUD_SELECT(g_settings.uart0_baudrate,F_CPU)); 
     
 	uart1_init(UART_BAUD_SELECT(19200UL,F_CPU)); 
+	//uart1_init(UART_BAUD_SELECT(g_settings.uart1_baudrate,F_CPU)); 
 
+	
 
 	/* --- Enable interrupts --- */ 
     sei();
