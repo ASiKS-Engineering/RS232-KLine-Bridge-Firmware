@@ -77,6 +77,7 @@ LICENSE:
 
 
 #define UART_BUFFER_MAX 128
+#define UART_BUFFER_DEFAULT 128
 
 /** Size of the circular receive buffer, must be power of 2 */
 #ifndef UART_RX_BUFFER_SIZE
@@ -159,6 +160,8 @@ extern void uart1_putc(unsigned char data);
 
 /**@}*/
 
+
+void uart_buffers_init(const settings_t *settings);
 
 void Clear_UART_Buffers(void);
 
