@@ -212,6 +212,11 @@ int main (void)
 			Service_UART0();
 			Service_UART1();
 		}
+		else
+		{
+			Service_CMD();
+		}
+			
 	
   }
 
