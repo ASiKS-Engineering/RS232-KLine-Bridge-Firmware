@@ -219,14 +219,17 @@ int main (void)
 	uint8_t u8_last_dtr_value=0xFF;
 	uint8_t u8_bridgeEnabled=0;
 	uint8_t u8_dtr_value = 0;
-	/*
+	
     // EEPROM lesen
     if(!settings_load(&g_settings))
     {
         // EEPROM ungültig -> Defaults speichern
         settings_save(&g_settings);
     }
-	*/
+	
+    uart_buffers_init(&g_settings);
+
+	
     /*
      * Ringbuffergrößen verfügbar:
      *
