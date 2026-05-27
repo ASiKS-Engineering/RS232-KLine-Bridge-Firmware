@@ -266,53 +266,31 @@ extern volatile uint8_t led1_timer;
 
 uint16_t validate_buffer_size(uint16_t size)
 {
-    if(size > UART_BUFFER_MAX)
-        return 128;
-
-    if(size == 0)
-        return 128;
-
-    if(size & (size - 1))
-        return 128;
+    if( (size == 0) ||
+        (size > UART_BUFFER_MAX) ||
+        (size & (size - 1)) ) // zweierkomplement check
+    {
+        return UART_BUFFER_DEFAULT;
+    }
 
     return size;
 }
 
-uint8_t is_power_of_two(uint16_t x)
+//void uart_buffers_init(uint16_t uart0_rx_buffer_size, uint16_t uart0_tx_buffer_size, uint16_t uart1_rx_buffer_size, uint16_t uart1_tx_buffer_size)
+void uart_buffers_init(const settings_t *settings)
 {
-    return (x != 0) && ((x & (x - 1)) == 0);
-}
+	
+    uart0_rx_size =
+        validate_buffer_size(settings->uart0_rx_buffer_size);
 
-void uart_buffers_init(uint16_t uart0_rx_buffer_size, uint16_t uart0_tx_buffer_size, uint16_t uart1_rx_buffer_size, uint16_t uart1_tx_buffer_size)
-{
-	
-	//uart0_rx_size = g_settings.uart0_rx_buffer_size;
-	uart0_rx_size = uart0_rx_buffer_size;
-    if(!is_power_of_two(uart0_rx_size))	
-    {	
-    	uart0_rx_size = 128;
-	}
-	
-	//uart0_tx_size = g_settings.uart0_tx_buffer_size;
-	uart0_tx_size = uart0_tx_buffer_size;
-	if(!is_power_of_two(uart0_tx_size))	
-    {	
-    	uart0_tx_size = 128;
-	}
-	
-    //uart1_rx_size = g_settings.uart1_rx_buffer_size;
-    uart1_rx_size = uart1_rx_buffer_size;
-	if(!is_power_of_two(uart1_rx_size))	
-    {	
-    	uart0_rx_size = 128;
-	}
-	
-    //uart1_tx_size = g_settings.uart1_tx_buffer_size;
-    uart1_tx_size = uart1_tx_buffer_size;
-	if(!is_power_of_two(uart1_tx_size))	
-    {	
-    	uart1_tx_size = 128;
-	}
+    uart0_tx_size =
+        validate_buffer_size(settings->uart0_tx_buffer_size);
+
+    uart1_rx_size =
+        validate_buffer_size(settings->uart1_rx_buffer_size);
+
+    uart1_tx_size =
+        validate_buffer_size(settings->uart1_tx_buffer_size);
 	
     uart0_rx_mask = uart0_rx_size - 1;
     uart0_tx_mask = uart0_tx_size - 1;
