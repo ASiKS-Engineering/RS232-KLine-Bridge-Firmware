@@ -360,7 +360,8 @@ ISR(UART0_RECEIVE_INTERRUPT)
     error = status & (_BV(FE) | _BV(DOR) | _BV(UPE));
 #endif
 
-    head = (UART_RxHead + 1) & UART_RX_BUFFER_MASK;
+    //head = (UART_RxHead + 1) & UART_RX_BUFFER_MASK;
+    head = (UART_RxHead + 1) & uart0_rx_mask;
 
     if (head == UART_RxTail)
     {
@@ -409,7 +410,9 @@ ISR(UART0_TRANSMIT_INTERRUPT)
         return;
     }
 
-    tail = (UART_TxTail + 1) & UART_TX_BUFFER_MASK;
+    //tail = (UART_TxTail + 1) & UART_TX_BUFFER_MASK;
+    tail = (UART_TxTail + 1) & uart0_tx_mask;
+
     UART_TxTail = tail;
 
     UART0_DATA = UART_TxBuf[tail];
@@ -490,8 +493,10 @@ unsigned int uart_getc(void)
     }
     
     /* calculate /store buffer index */
-    tmptail = (UART_RxTail + 1) & UART_RX_BUFFER_MASK;
-    UART_RxTail = tmptail; 
+    //tmptail = (UART_RxTail + 1) & UART_RX_BUFFER_MASK;
+    tmptail = (UART_RxTail + 1) & uart0_rx_mask;
+
+	UART_RxTail = tmptail; 
     
     /* get data from receive buffer */
     //data = UART_RxBuf[tmptail];
@@ -512,8 +517,10 @@ void uart_putc(unsigned char data)
     unsigned char tmphead;
 
     
-    tmphead  = (UART_TxHead + 1) & UART_TX_BUFFER_MASK;
-    
+    //tmphead  = (UART_TxHead + 1) & UART_TX_BUFFER_MASK;
+    tmphead = (UART_TxHead + 1) & uart0_tx_mask;
+
+	
     while ( tmphead == UART_TxTail ){
         ;/* wait for free space in buffer */
     }
@@ -581,7 +588,8 @@ ISR(UART1_RECEIVE_INTERRUPT)
 
     error = status & (_BV(FE1) | _BV(DOR1) | _BV(UPE1));
 
-    head = (UART1_RxHead + 1) & UART_RX_BUFFER_MASK;
+    //head = (UART1_RxHead + 1) & UART_RX_BUFFER_MASK;
+    head = (UART1_RxHead + 1) & uart1_rx_mask;
 
     if (head == UART1_RxTail)
     {
@@ -631,7 +639,8 @@ ISR(UART1_TRANSMIT_INTERRUPT)
         return;
     }
 
-    tail = (UART1_TxTail + 1) & UART_TX_BUFFER_MASK;
+    //tail = (UART1_TxTail + 1) & UART_TX_BUFFER_MASK;
+	tail = (UART1_TxTail + 1) & uart1_tx_mask;
     UART1_TxTail = tail;
 
     UART1_DATA = UART1_TxBuf[tail];
@@ -691,8 +700,9 @@ unsigned int uart1_getc(void)
     }
     
     /* calculate /store buffer index */
-    tmptail = (UART1_RxTail + 1) & UART_RX_BUFFER_MASK;
-    UART1_RxTail = tmptail; 
+    //tmptail = (UART1_RxTail + 1) & UART_RX_BUFFER_MASK;
+    tmptail = (UART1_RxTail + 1) & uart1_rx_mask;
+	UART1_RxTail = tmptail; 
     
     /* get data from receive buffer */
     //data = UART1_RxBuf[tmptail];
@@ -713,8 +723,9 @@ void uart1_putc(unsigned char data)
     unsigned char tmphead;
 
     
-    tmphead  = (UART1_TxHead + 1) & UART_TX_BUFFER_MASK;
-    
+    //tmphead = (UART1_TxHead + 1) & UART_TX_BUFFER_MASK;
+    tmphead = (UART1_txHead + 1) & uart1_tx_mask;
+	
     while ( tmphead == UART1_TxTail ){
         ;/* wait for free space in buffer */
     }
