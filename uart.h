@@ -76,6 +76,8 @@ LICENSE:
 #define UART_BAUD_SELECT_DOUBLE_SPEED(baudRate,xtalCpu) (((xtalCpu)/((baudRate)*8)-1)|0x8000)
 
 
+#define UART_BUFFER_MAX 128
+
 /** Size of the circular receive buffer, must be power of 2 */
 #ifndef UART_RX_BUFFER_SIZE
 #define UART_RX_BUFFER_SIZE 128
